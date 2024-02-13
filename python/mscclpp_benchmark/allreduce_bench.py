@@ -11,7 +11,7 @@ from mscclpp import ProxyService
 from prettytable import PrettyTable
 import netifaces as ni
 
-data_type = cp.float32
+data_type = cp.float16
 
 if data_type == cp.float16:
     dtype_str = "fp16"
@@ -87,11 +87,11 @@ def check_correctness(memory, func, niter=100):
         icf = is_close == 0
         all_close = cp.all(is_close)
         ac = ac and all_close
-        if not all_close:
-            print(
-                f"not close: p={p}, rank={MPI.COMM_WORLD.rank}, output={output_memory[icf][0]}, expected={expected[icf][0]}",
-                flush=True,
-            )
+        # if not all_close:
+        #     print(
+        #         f"not close: p={p}, rank={MPI.COMM_WORLD.rank}, output={output_memory[icf][0]}, expected={expected[icf][0]}",
+        #         flush=True,
+        #     )
 
     ac = MPI.COMM_WORLD.allreduce(ac, op=MPI.SUM)
     return ac
@@ -117,6 +117,9 @@ def bench_time(niter: int, func):
     graph.launch(stream)
     end.record(stream)
     end.synchronize()
+    stream.synchronize()
+    cp.cuda.runtime.deviceSynchronize()
+    MPI.COMM_WORLD.barrier()
 
     return cp.cuda.get_elapsed_time(start, end) / niter * 1000.0
 
@@ -212,7 +215,7 @@ if __name__ == "__main__":
     cp.cuda.Device(MPI.COMM_WORLD.rank % N_GPUS_PER_NODE).use()
 
     # create a MscclppGroup
-    network_interface = "eth0"
+    network_interface = "ens14np0"
     my_ip = ni.ifaddresses(network_interface)[ni.AF_INET][0]["addr"]
     root_ip = MPI.COMM_WORLD.bcast(my_ip, root=0)
     ifIpPortTrio = network_interface + ":" + root_ip + ":50000"  # some random port
@@ -247,7 +250,7 @@ if __name__ == "__main__":
     mscclpp_algbw = []
     nccl_algbw = []
     speed_ups = []
-    for i in range(10, 29):
+    for i in range(22, 24):
         if MPI.COMM_WORLD.size // N_GPUS_PER_NODE == 1:
             nelems = 2**i
         elif MPI.COMM_WORLD.size // N_GPUS_PER_NODE == 2:

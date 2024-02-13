@@ -271,14 +271,16 @@ extern "C" __global__ void __launch_bounds__(1024, 1)
     data = add_vectors<TYPE>(data, src[idx]);
     dst[idx] = data;
 
-    mscclpp::LLPacket packet;
-    packet.data1 = data.x;
-    packet.flag1 = flag;
-    packet.data2 = data.y;
-    packet.flag2 = flag;
+    // mscclpp::LLPacket packet;
+    // packet.data1 = data.x;
+    // packet.flag1 = flag;
+    // packet.data2 = data.y;
+    // packet.flag2 = flag;
     size_t offset = scratchResultOffset / sizeof(mscclpp::LLPacket) + (idx + rank * nPktsPerRank);
     for (int index = 0; index < nPeers; index++) {
-      smChans[index].write(offset, packet);
+      ((mscclpp::LLPacket*)((char*)smChans[index].dst_ + offset * sizeof(mscclpp::LLPacket)))
+          ->write(data.x, data.y, flag);
+      // smChans[index].write(offset, packet);
     }
   }
   // step 3: get data result from scratch buffer

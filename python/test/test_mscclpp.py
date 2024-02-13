@@ -25,7 +25,7 @@ from mscclpp.utils import KernelBuilder, pack
 from ._cpp import _ext
 from .mscclpp_mpi import MpiGroup, parametrize_mpi_groups, mpi_group
 
-ethernet_interface_name = "eth0"
+ethernet_interface_name = "ens14np0"
 
 
 def all_ranks_on_the_same_node(mpi_group: MpiGroup):
@@ -38,7 +38,7 @@ def all_ranks_on_the_same_node(mpi_group: MpiGroup):
 
 
 @parametrize_mpi_groups(2, 4, 8, 16)
-@pytest.mark.parametrize("ifIpPortTrio", ["eth0:localhost:50000", ethernet_interface_name, ""])
+@pytest.mark.parametrize("ifIpPortTrio", ["ens14np0:localhost:50000", ethernet_interface_name, ""])
 def test_group_with_ip(mpi_group: MpiGroup, ifIpPortTrio: str):
     if (ethernet_interface_name in ni.interfaces()) is False:
         pytest.skip(f"{ethernet_interface_name} is not an interface to use on this node")
