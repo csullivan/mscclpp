@@ -407,22 +407,22 @@ __global__ void allreduce7(T* buff, T* scratch, T* resultBuff, int rank, int nRa
 template <typename T>
 cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, int rank, int nRanksPerNode, int worldSize, size_t nelems,
                       cudaStream_t stream) {
-  if (sizeof(T) * nelems <= (1 << 20)) {
-#if defined(__HIP_PLATFORM_AMD__)
-    int nBlocks = 28;
-    int nThreadsPerBlock = 1024;
-    if (nelems >= 8192) {
-      nBlocks = 56;
-      nThreadsPerBlock = (nelems <= 76800) ? 512 : 1024;
-    }
-    allreduce7<<<nBlocks, nThreadsPerBlock, 0, stream>>>(buff, scratch, resultBuff, rank, nRanksPerNode, worldSize,
-                                                         nelems);
-#else
-    allreduce6<<<21, 512, 0, stream>>>(buff, scratch, resultBuff, rank, nRanksPerNode, worldSize, nelems);
-#endif
-  } else {
+//   if (sizeof(T) * nelems <= (1 << 20)) {
+// #if defined(__HIP_PLATFORM_AMD__)
+//     int nBlocks = 28;
+//     int nThreadsPerBlock = 1024;
+//     if (nelems >= 8192) {
+//       nBlocks = 56;
+//       nThreadsPerBlock = (nelems <= 76800) ? 512 : 1024;
+//     }
+//     allreduce7<<<nBlocks, nThreadsPerBlock, 0, stream>>>(buff, scratch, resultBuff, rank, nRanksPerNode, worldSize,
+//                                                          nelems);
+// #else
+//     allreduce6<<<21, 512, 0, stream>>>(buff, scratch, resultBuff, rank, nRanksPerNode, worldSize, nelems);
+// #endif
+//   } else {
     allreduce1<<<24, 1024, 0, stream>>>(buff, resultBuff, rank, worldSize, nelems);
-  }
+  // }
   return cudaGetLastError();
 }
 
@@ -772,23 +772,23 @@ NCCL_API ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t
   if (sendbuff == nullptr || recvbuff == nullptr || bytes == 0 || comm == nullptr) return ncclInvalidArgument;
   int rank = comm->comm->bootstrap()->getRank();
   channelKey key{sendbuff, recvbuff, bytes};
-  if (bytes <= 1 << 20) {
-    auto it = comm->channelInfos.find(key);
-    if (it == comm->channelInfos.end()) {
-      std::vector<mscclpp::SmChannel> channels =
-          setupSmChannels(comm, comm->remoteScratchRegMemories, const_cast<void*>(sendbuff));
-      std::vector<mscclpp::DeviceHandle<mscclpp::SmChannel>> smChannelDeviceHandles;
-      std::transform(channels.begin(), channels.end(), std::back_inserter(smChannelDeviceHandles),
-                     [](const mscclpp::SmChannel& smChannel) { return mscclpp::deviceHandle(smChannel); });
-      ChannelInfo channelInfo{channels, {}, smChannelDeviceHandles, {}};
-      it = comm->channelInfos.emplace(key, channelInfo).first;
-    }
-    // TODO: if sendbuff and recvbuff don't change, we can avoid copying smChannelDeviceHandles to device
-    CUDACHECK(cudaMemcpyToSymbolAsync(
-        constSmChannels, it->second.smChannelDeviceHandles.data(),
-        sizeof(mscclpp::DeviceHandle<mscclpp::SmChannel>) * it->second.smChannelDeviceHandles.size(), 0,
-        cudaMemcpyHostToDevice, stream));
-  } else {
+  // if (bytes <= 1 << 20) {
+  //   auto it = comm->channelInfos.find(key);
+  //   if (it == comm->channelInfos.end()) {
+  //     std::vector<mscclpp::SmChannel> channels =
+  //         setupSmChannels(comm, comm->remoteScratchRegMemories, const_cast<void*>(sendbuff));
+  //     std::vector<mscclpp::DeviceHandle<mscclpp::SmChannel>> smChannelDeviceHandles;
+  //     std::transform(channels.begin(), channels.end(), std::back_inserter(smChannelDeviceHandles),
+  //                    [](const mscclpp::SmChannel& smChannel) { return mscclpp::deviceHandle(smChannel); });
+  //     ChannelInfo channelInfo{channels, {}, smChannelDeviceHandles, {}};
+  //     it = comm->channelInfos.emplace(key, channelInfo).first;
+  //   }
+  //   // TODO: if sendbuff and recvbuff don't change, we can avoid copying smChannelDeviceHandles to device
+  //   CUDACHECK(cudaMemcpyToSymbolAsync(
+  //       constSmChannels, it->second.smChannelDeviceHandles.data(),
+  //       sizeof(mscclpp::DeviceHandle<mscclpp::SmChannel>) * it->second.smChannelDeviceHandles.size(), 0,
+  //       cudaMemcpyHostToDevice, stream));
+  // } else {
     auto it = comm->channelInfos.find(key);
     if (it == comm->channelInfos.end()) {
       std::vector<mscclpp::RegisteredMemory> remoteMemories =
@@ -824,7 +824,7 @@ NCCL_API ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t
           sizeof(mscclpp::DeviceHandle<mscclpp::SmChannel>) * it->second.smChannelDeviceHandles.size(), 0,
           cudaMemcpyHostToDevice, stream));
     }
-  }
+  // }
 
   switch (datatype) {
     case ncclFloat16:
