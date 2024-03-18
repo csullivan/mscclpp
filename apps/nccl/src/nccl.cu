@@ -25,7 +25,6 @@
   } while (0)
 
 #define NUM_CHANNELS_PER_CONNECTION 64
-__device__ mscclpp::DeviceSyncer deviceSyncer;
 
 // static const mscclpp::Transport IBs[] = {mscclpp::Transport::IB0, mscclpp::Transport::IB1, mscclpp::Transport::IB2,
 //                             mscclpp::Transport::IB3, mscclpp::Transport::IB4, mscclpp::Transport::IB5,

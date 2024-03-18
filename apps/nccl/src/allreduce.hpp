@@ -11,7 +11,7 @@
 
 #include "common.hpp"
 
-extern __device__ mscclpp::DeviceSyncer deviceSyncer;
+__device__ mscclpp::DeviceSyncer deviceSyncer;
 
 template <typename To, typename From>
 __forceinline__ __device__ To bit_cast(const From& src) {
@@ -131,9 +131,9 @@ __global__ void __launch_bounds__(1024, 1)
     allreduce6(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<mscclpp::SmChannel>* smChannels, int rank,
                int nRanksPerNode, int worldSize, size_t nelems, uint32_t flag) {
   // This version of allreduce only works for single nodes
-  if (worldSize != nRanksPerNode) return;
+  if (worldSize > nRanksPerNode) return;
   nelems = nelems / (sizeof(int) / sizeof(T));
-  const int nPeers = nRanksPerNode - 1;
+  const int nPeers = worldSize - 1;
   const int nPkts = nelems / 2;
   const int nelemsPerRank = nelems / worldSize;
   const int nPktsPerRank = nelemsPerRank / 2;
@@ -269,9 +269,9 @@ __global__ void __launch_bounds__(1024, 1)
     allreduce7(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<mscclpp::SmChannel>* smChannels, int rank,
                int nRanksPerNode, int worldSize, size_t nelems, uint32_t flag) {
   // This version of allreduce only works for single nodes
-  if (worldSize != nRanksPerNode) return;
+  if (worldSize > nRanksPerNode) return;
   nelems = nelems / (sizeof(int) / sizeof(T));
-  const int nPeers = nRanksPerNode - 1;
+  const int nPeers = worldSize - 1;
   const size_t nPkts = nelems;
   const int nelemsPerRank = nelems / worldSize;
   const int nPktsPerRank = nelemsPerRank;
@@ -301,7 +301,7 @@ __global__ void __launch_bounds__(1024, 1)
 
   // step 1: write to scratch buffer
   channels[peerIdx].putPackets<mscclpp::LL8Packet>(scratchOffset, srcOffset, nelemsPerRank * sizeof(int), tid,
-                                                          blockDim.x * nBlocksPerPeer, flag);
+                                                   blockDim.x * nBlocksPerPeer, flag);
   // step 2: get data from scratch buffer, reduce data and write result to remote scratch buffer
   for (int idx = threadIdx.x + blockIdx.x * blockDim.x; idx < nPktsPerRank; idx += blockDim.x * gridDim.x) {
     uint32_t data = 0;
