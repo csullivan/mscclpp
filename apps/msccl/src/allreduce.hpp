@@ -126,6 +126,66 @@ __forceinline__ __device__ void vectorSum(T* dst, T* src, size_t nElem) {
   vectorSum(dst, src, nElem, blockIdx.x, gridDim.x);
 }
 
+template <typename TYPE>
+__global__ void __launch_bounds__(1024, 1)
+    allreduce_simple(mscclpp::SmChannelDeviceHandle* smChans, TYPE* buff, TYPE* scratch, void* resultBuff, int rank,
+                     int worldSize, size_t nelems, const uint32_t flag) {
+  nelems = nelems / (sizeof(int) / sizeof(TYPE));
+
+  const int nPeers = worldSize - 1;
+  const size_t nPkts = nelems / 2;
+  const int nelemsPerRank = nelems / worldSize;
+  const int nPktsPerRank = nelemsPerRank / 2;
+  const int nBlocksPerPeer = gridDim.x / nPeers;
+  const int localBlockIdx = blockIdx.x % nBlocksPerPeer;
+  const int peerIdx = blockIdx.x / nBlocksPerPeer;
+  const int remoteRank = peerIdx < rank ? peerIdx : peerIdx + 1;
+  mscclpp::SmChannelDeviceHandle smChan = smChans[peerIdx];
+  const int tid = threadIdx.x + localBlockIdx * blockDim.x;
+
+  size_t scratchOffset = rank * nPktsPerRank * sizeof(mscclpp::LLPacket);
+  size_t resultOffset = 2 * nPkts * sizeof(mscclpp::LLPacket);  // Fixed result offset
+  size_t srcOffset = remoteRank * nelemsPerRank * sizeof(int);
+  uint2* src = (uint2*)((char*)buff + rank * nelemsPerRank * sizeof(int));
+  uint2* dst = (uint2*)((char*)resultBuff + rank * nelemsPerRank * sizeof(int));
+
+  // Step 1. Write to scratch buffer which exposes memory to peers
+  smChan.putPackets(scratchOffset, srcOffset, nelemsPerRank * sizeof(int), tid, blockDim.x * nBlocksPerPeer, flag);
+
+  // Step 2. Get data from scratch buffer, reduce data, and write result back to peer scratch
+  for (int idx = threadIdx.x + blockIdx.x * blockDim.x; idx < nPktsPerRank; idx += blockDim.x * gridDim.x) {
+    uint2 data = make_uint2(0, 0);
+    for (int index = 0; index < nPeers; index++) {
+      const int remoteRank = index < rank ? index : index + 1;
+      mscclpp::LLPacket* dstPkt = (mscclpp::LLPacket*)scratch + remoteRank * nPktsPerRank;
+      uint2 val = dstPkt[idx].read(flag);
+      data = add_vectors<TYPE>(val, data);
+    }
+    data = add_vectors<TYPE>(data, src[idx]);
+    dst[idx] = data;
+
+    mscclpp::LLPacket packet;
+    packet.data1 = data.x;
+    packet.flag1 = flag;
+    packet.data2 = data.y;
+    packet.flag2 = flag;
+    size_t offset = resultOffset / sizeof(mscclpp::LLPacket) + (idx + rank * nPktsPerRank);
+    for (int index = 0; index < nPeers; index++) {
+      smChans[index].write(offset, packet);
+    }
+  }
+
+  // Step 3. Update local gpus final result from peer scratch buffers
+  mscclpp::LLPacket* dstPkt = (mscclpp::LLPacket*)((char*)scratch + resultOffset);
+  const int dstOffset = remoteRank * nPktsPerRank;
+  uint2* result = (uint2*)((char*)resultBuff + remoteRank * nelemsPerRank * sizeof(int));
+  for (int idx = threadIdx.x + localBlockIdx * blockDim.x; idx < nPktsPerRank; idx += blockDim.x * nBlocksPerPeer) {
+    uint2 data = dstPkt[idx + dstOffset].read(flag);
+    result[idx].x = data.x;
+    result[idx].y = data.y;
+  }
+}
+
 template <typename T>
 __global__ void __launch_bounds__(1024, 1)
     allreduce6(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<mscclpp::SmChannel>* smChannels, int rank,
@@ -472,9 +532,8 @@ cudaError_t allreduce(T* buff, T* scratch, T* resultBuff, mscclpp::DeviceHandle<
                                                          worldSize, nelems);
   }
 #else
-  if (sizeof(T) * nelems <= (1 << 20)) {
-    allreduce6<<<21, 512, 0, stream>>>(buff, scratch, resultBuff, smChannels, rank, nRanksPerNode, worldSize, nelems,
-                                       flag++);
+  if (sizeof(T) * nelems <= (1 << 24)) {
+    allreduce_simple<<<105, 1024, 0, stream>>>(smChannels, buff, scratch, resultBuff, rank, worldSize, nelems, flag++);
   } else {
     allreduce1<<<24, 1024, 0, stream>>>(buff, resultBuff, smChannels, smOutChannels, rank, worldSize, nelems);
   }
