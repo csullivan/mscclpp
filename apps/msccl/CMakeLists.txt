@@ -1,11 +1,11 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/nccl.cu)
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS include/nccl.h)
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/msccl.cu)
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS include/msccl.h)
 
 if(USE_ROCM)
-    set_source_files_properties(src/nccl.cu PROPERTIES LANGUAGE CXX)
+    set_source_files_properties(src/msccl.cu PROPERTIES LANGUAGE CXX)
 endif()
 
 add_library(mscclpp_nccl_obj OBJECT)
