@@ -47,6 +47,8 @@ struct hash<channelKey> {
 };
 }  // namespace std
 
+namespace mscclpp {
+
 struct ChannelInfo {
   std::vector<mscclpp::SmChannel> smChannels;
   std::shared_ptr<mscclpp::DeviceHandle<mscclpp::SmChannel>> smChannelDeviceHandles;
@@ -581,3 +583,4 @@ NCCL_API ncclResult_t ncclGroupEnd() {
   // Do nothing
   return ncclSuccess;
 }
+}  // namespace mscclpp

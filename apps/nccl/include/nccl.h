@@ -2,12 +2,13 @@
 // Modifications Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#ifndef NCCL_H_
-#define NCCL_H_
+#ifndef MSCCLPP_NCCL_H_
+#define MSCCLPP_NCCL_H_
 
 #include <mscclpp/gpu.hpp>
 
 #ifdef __cplusplus
+namespace mscclpp {
 extern "C" {
 #endif
 
@@ -470,6 +471,7 @@ ncclResult_t pncclGroupEnd();
 
 #ifdef __cplusplus
 }  // end extern "C"
+}  // namespace mscclpp
 #endif
 
 #endif  // end include guard

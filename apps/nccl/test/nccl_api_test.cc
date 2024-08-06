@@ -10,6 +10,8 @@
 #include "mpi.h"
 #include "nccl.h"
 
+using namespace mscclpp;
+
 #define MPICHECK(cmd)                                                  \
   do {                                                                 \
     int e = cmd;                                                       \
