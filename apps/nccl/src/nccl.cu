@@ -2,7 +2,6 @@
 // Licensed under the MIT license.
 
 #include <algorithm>
-#include <iostream>
 #include <mscclpp/concurrency_device.hpp>
 #include <mscclpp/core.hpp>
 #include <mscclpp/executor.hpp>
@@ -16,7 +15,7 @@
 #include "allreduce.hpp"
 #include "nccl.h"
 
-#define NCCL_API extern "C" __attribute__((visibility("default")))
+#define NCCL_API __attribute__((visibility("default")))
 
 #define CUDACHECK(cmd)                                                                      \
   do {                                                                                      \
@@ -283,7 +282,7 @@ NCCL_API ncclResult_t ncclGetVersion(int* version) {
   return ncclSuccess;
 }
 
-NCCL_API ncclResult_t mscclpp_ncclGetUniqueId(ncclUniqueId* uniqueId) {
+NCCL_API ncclResult_t ncclGetUniqueId(ncclUniqueId* uniqueId) {
   if (uniqueId == nullptr) return ncclInvalidArgument;
   if (MSCCLPP_UNIQUE_ID_BYTES != NCCL_UNIQUE_ID_BYTES) return ncclInternalError;
   mscclpp::UniqueId id = mscclpp::TcpBootstrap::createUniqueId();
@@ -296,7 +295,7 @@ NCCL_API ncclResult_t ncclCommInitRankConfig(ncclComm_t*, int, ncclUniqueId, int
   return ncclInternalError;
 }
 
-NCCL_API ncclResult_t mscclpp_ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank) {
+NCCL_API ncclResult_t ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank) {
   if (comm == nullptr) return ncclInvalidArgument;
   if (nranks < 0 || rank < 0 || rank >= nranks) return ncclInvalidArgument;
   std::shared_ptr<mscclpp::TcpBootstrap> bootstrap = std::make_shared<mscclpp::TcpBootstrap>(rank, nranks);
@@ -376,7 +375,7 @@ NCCL_API ncclResult_t ncclCommFinalize(ncclComm_t comm) {
   return ncclSuccess;
 }
 
-NCCL_API ncclResult_t mscclpp_ncclCommDestroy(ncclComm_t comm) {
+NCCL_API ncclResult_t ncclCommDestroy(ncclComm_t comm) {
   if (comm == nullptr) return ncclInvalidArgument;
   delete comm;
   return ncclSuccess;
@@ -387,7 +386,7 @@ NCCL_API ncclResult_t ncclCommAbort(ncclComm_t) {
   return ncclSuccess;
 }
 
-NCCL_API ncclResult_t mscclpp_ncclCommSplit(ncclComm_t, int, int, ncclComm_t*, ncclConfig_t*) {
+NCCL_API ncclResult_t ncclCommSplit(ncclComm_t, int, int, ncclComm_t*, ncclConfig_t*) {
   // TODO: implement this function
   return ncclInternalError;
 }
@@ -470,8 +469,8 @@ NCCL_API ncclResult_t ncclBroadcast(const void*, void*, size_t, ncclDataType_t, 
   return ncclInternalError;
 }
 
-NCCL_API ncclResult_t mscclpp_ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype,
-                                            ncclRedOp_t reductionOperation, ncclComm_t comm, cudaStream_t stream) {
+NCCL_API ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype,
+                                    ncclRedOp_t reductionOperation, ncclComm_t comm, cudaStream_t stream) {
   // Checking if the parameters are valids
   if (sendbuff == nullptr || recvbuff == nullptr || count == 0 || ncclTypeSize(datatype) == 0 || comm == nullptr)
     return ncclInvalidArgument;
