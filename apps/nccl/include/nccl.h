@@ -80,8 +80,8 @@ ncclResult_t pncclGetVersion(int* version);
 /* Generates an Id to be used in ncclCommInitRank. ncclGetUniqueId should be
  * called once and the Id should be distributed to all ranks in the
  * communicator before calling ncclCommInitRank. */
-ncclResult_t ncclGetUniqueId(ncclUniqueId* uniqueId);
-ncclResult_t pncclGetUniqueId(ncclUniqueId* uniqueId);
+ncclResult_t mscclpp_ncclGetUniqueId(ncclUniqueId* uniqueId);
+ncclResult_t mscclpp_pncclGetUniqueId(ncclUniqueId* uniqueId);
 
 /* Create a new communicator (multi thread/process version) with a configuration
  * set by users. */
@@ -94,8 +94,8 @@ ncclResult_t pncclCommInitRankConfig(ncclComm_t* comm, int nranks, ncclUniqueId 
  * ncclCommInitRank.
  * ncclCommInitRank implicitly syncronizes with other ranks, so it must be
  * called by different threads/processes or use ncclGroupStart/ncclGroupEnd. */
-ncclResult_t ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank);
-ncclResult_t pncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank);
+ncclResult_t mscclpp_ncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank);
+ncclResult_t mscclpp_pncclCommInitRank(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank);
 
 /* Creates a clique of communicators (single process version).
  * This is a convenience function to create a single-process communicator clique.
@@ -115,8 +115,8 @@ ncclResult_t ncclCommFinalize(ncclComm_t comm);
 ncclResult_t pncclCommFinalize(ncclComm_t comm);
 
 /* Frees local resources associated with communicator object. */
-ncclResult_t ncclCommDestroy(ncclComm_t comm);
-ncclResult_t pncclCommDestroy(ncclComm_t comm);
+ncclResult_t mscclpp_ncclCommDestroy(ncclComm_t comm);
+ncclResult_t mscclpp_pncclCommDestroy(ncclComm_t comm);
 
 /* Frees resources associated with communicator object and aborts any operations
  * that might still be running on the device. */
@@ -130,8 +130,8 @@ ncclResult_t pncclCommAbort(ncclComm_t comm);
  * and will therefore return a NULL communicator.
  * If config is NULL, the new communicator will inherit the original communicator's
  * configuration*/
-ncclResult_t ncclCommSplit(ncclComm_t comm, int color, int key, ncclComm_t* newcomm, ncclConfig_t* config);
-ncclResult_t pncclCommSplit(ncclComm_t comm, int color, int key, ncclComm_t* newcomm, ncclConfig_t* config);
+ncclResult_t mscclpp_ncclCommSplit(ncclComm_t comm, int color, int key, ncclComm_t* newcomm, ncclConfig_t* config);
+ncclResult_t mscclpp_pncclCommSplit(ncclComm_t comm, int color, int key, ncclComm_t* newcomm, ncclConfig_t* config);
 
 /* Returns a string for each error code. */
 const char* ncclGetErrorString(ncclResult_t result);
@@ -309,10 +309,10 @@ ncclResult_t pncclBroadcast(const void* sendbuff, void* recvbuff, size_t count, 
  *
  * In-place operation will happen if sendbuff == recvbuff.
  */
-ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype, ncclRedOp_t op,
-                           ncclComm_t comm, cudaStream_t stream);
-ncclResult_t pncclAllReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype, ncclRedOp_t op,
-                            ncclComm_t comm, cudaStream_t stream);
+ncclResult_t mscclpp_ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype,
+                                   ncclRedOp_t op, ncclComm_t comm, cudaStream_t stream);
+ncclResult_t mscclpp_pncclAllReduce(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype,
+                                    ncclRedOp_t op, ncclComm_t comm, cudaStream_t stream);
 
 /*
  * Reduce-Scatter
