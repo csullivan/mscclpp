@@ -13,8 +13,92 @@
 #include <mscclpp/sm_channel_device.hpp>
 
 #include "common.hpp"
+#include "cuda_fp8.h"
 
 __device__ mscclpp::DeviceSyncer deviceSyncer;
+
+struct __align__(8) half4 {
+  __half x, y, z, w;
+  __host__ __device__ half4() : x(__half(0)), y(__half(0)), z(__half(0)), w(__half(0)) {}
+  __host__ __device__ half4(__half x, __half y, __half z, __half w) : x(x), y(y), z(z), w(w) {}
+  __host__ __device__ explicit half4(const __nv_fp8x4_e4m3& fp8x4) {
+    __nv_fp8x2_e4m3 lo_part, hi_part;
+    lo_part.__x = static_cast<__nv_fp8x2_storage_t>(fp8x4.__x & 0xFFFF);
+    hi_part.__x = static_cast<__nv_fp8x2_storage_t>((fp8x4.__x >> 16) & 0xFFFF);
+    __half2 lo_half2 = static_cast<__half2>(lo_part);
+    __half2 hi_half2 = static_cast<__half2>(hi_part);
+    x = reinterpret_cast<__half*>(&lo_half2)[0];
+    y = reinterpret_cast<__half*>(&lo_half2)[1];
+    z = reinterpret_cast<__half*>(&hi_half2)[0];
+    w = reinterpret_cast<__half*>(&hi_half2)[1];
+  }
+  __host__ __device__ explicit operator __nv_fp8x4_e4m3() const {
+    __nv_fp8x4_e4m3 result;
+    __half2 lo_half2 = *reinterpret_cast<const __half2*>(&x);
+    __half2 hi_half2 = *reinterpret_cast<const __half2*>(&z);
+    __nv_fp8x2_e4m3 lo_part(lo_half2), hi_part(hi_half2);
+    result.__x = (static_cast<__uint32_t>(lo_part.__x) | (static_cast<__uint32_t>(hi_part.__x) << 16));
+    return result;
+  }
+  __host__ __device__ explicit half4(const __nv_fp8x4_e5m2& fp8x4) {
+    __nv_fp8x2_e5m2 lo_part, hi_part;
+    lo_part.__x = static_cast<__nv_fp8x2_storage_t>(fp8x4.__x & 0xFFFF);
+    hi_part.__x = static_cast<__nv_fp8x2_storage_t>((fp8x4.__x >> 16) & 0xFFFF);
+    __half2 lo_half2 = static_cast<__half2>(lo_part);
+    __half2 hi_half2 = static_cast<__half2>(hi_part);
+    x = reinterpret_cast<__half*>(&lo_half2)[0];
+    y = reinterpret_cast<__half*>(&lo_half2)[1];
+    z = reinterpret_cast<__half*>(&hi_half2)[0];
+    w = reinterpret_cast<__half*>(&hi_half2)[1];
+  }
+  __host__ __device__ explicit operator __nv_fp8x4_e5m2() const {
+    __nv_fp8x4_e5m2 result;
+    __half2 lo_half2 = *reinterpret_cast<const __half2*>(&x);
+    __half2 hi_half2 = *reinterpret_cast<const __half2*>(&z);
+    __nv_fp8x2_e5m2 lo_part(lo_half2), hi_part(hi_half2);
+    result.__x = (static_cast<__uint32_t>(lo_part.__x) | (static_cast<__uint32_t>(hi_part.__x) << 16));
+    return result;
+  }
+  __device__ __nv_fp8x2_e5m2 make_fp8x2_e5m2(__nv_fp8_storage_t x, __nv_fp8_storage_t y) {
+    __nv_fp8x2_e5m2 result;
+    result.__x = (x) | (y << 8);
+    return result;
+  }
+  __device__ __nv_fp8x4_e5m2 make_fp8x4_e5m2(__nv_fp8_storage_t a, __nv_fp8_storage_t b, __nv_fp8_storage_t c,
+                                             __nv_fp8_storage_t d) {
+    __nv_fp8x4_e5m2 result;
+    result.__x = (a) | (b << 8) | (c << 16) | (d << 24);
+    return result;
+  }
+  __device__ __nv_fp8x2_e4m3 make_fp8x2_e4m3(__nv_fp8_storage_t x, __nv_fp8_storage_t y) {
+    __nv_fp8x2_e4m3 result;
+    result.__x = (x) | (y << 8);
+    return result;
+  }
+  __device__ __nv_fp8x4_e4m3 make_fp8x4_e4m3(__nv_fp8_storage_t a, __nv_fp8_storage_t b, __nv_fp8_storage_t c,
+                                             __nv_fp8_storage_t d) {
+    __nv_fp8x4_e4m3 result;
+    result.__x = (a) | (b << 8) | (c << 16) | (d << 24);
+    return result;
+  }
+
+  __device__ __nv_fp8x4_e4m3 operator+(const half4& rhs) const {
+    __half2 lhs_lo = *reinterpret_cast<const __half2*>(&x);
+    __half2 rhs_lo = *reinterpret_cast<const __half2*>(&rhs.x);
+    __half2 lhs_hi = *reinterpret_cast<const __half2*>(&z);
+    __half2 rhs_hi = *reinterpret_cast<const __half2*>(&rhs.z);
+
+    __half2 lo_result = __hadd2(lhs_lo, rhs_lo);
+    __half2 hi_result = __hadd2(lhs_hi, rhs_hi);
+    __nv_fp8x2_e4m3 lo_part(lo_result), hi_part(hi_result);
+
+    __nv_fp8x4_e4m3 result;
+    result.__x = (static_cast<__uint32_t>(lo_part.__x) | (static_cast<__uint32_t>(hi_part.__x) << 16));
+    return result;
+  }
+};
+
+__host__ __device__ half4 make_half4(__half x, __half y, __half z, __half w) { return half4(x, y, z, w); }
 
 template <typename To, typename From>
 __forceinline__ __device__ To bit_cast(const From& src) {
@@ -38,6 +122,11 @@ __forceinline__ __device__ __half2 add_elements(__half2 a, __half2 b) {
   return __hadd2(a, b);
 }
 
+template <>
+__forceinline__ __device__ __nv_fp8x4_e4m3 add_elements(__nv_fp8x4_e4m3 a, __nv_fp8x4_e4m3 b) {
+  return half4(a) + half4(b);
+}
+
 template <typename T>
 __forceinline__ __device__ int4 add_vectors_helper(int4 a, int4 b) {
   int4 ret;
@@ -45,6 +134,20 @@ __forceinline__ __device__ int4 add_vectors_helper(int4 a, int4 b) {
   ret.x = bit_cast<int, T>(add_elements(bit_cast<T, int>(a.x), bit_cast<T, int>(b.x)));
   ret.y = bit_cast<int, T>(add_elements(bit_cast<T, int>(a.y), bit_cast<T, int>(b.y)));
   ret.z = bit_cast<int, T>(add_elements(bit_cast<T, int>(a.z), bit_cast<T, int>(b.z)));
+  return ret;
+}
+
+template <>
+__forceinline__ __device__ int4 add_vectors_helper<__nv_fp8x4_e4m3>(int4 a, int4 b) {
+  int4 ret;
+  ret.w = bit_cast<int, __nv_fp8x4_e4m3>(
+      add_elements(bit_cast<__nv_fp8x4_e4m3, int>(a.w), bit_cast<__nv_fp8x4_e4m3, int>(b.w)));
+  ret.x = bit_cast<int, __nv_fp8x4_e4m3>(
+      add_elements(bit_cast<__nv_fp8x4_e4m3, int>(a.x), bit_cast<__nv_fp8x4_e4m3, int>(b.x)));
+  ret.y = bit_cast<int, __nv_fp8x4_e4m3>(
+      add_elements(bit_cast<__nv_fp8x4_e4m3, int>(a.y), bit_cast<__nv_fp8x4_e4m3, int>(b.y)));
+  ret.z = bit_cast<int, __nv_fp8x4_e4m3>(
+      add_elements(bit_cast<__nv_fp8x4_e4m3, int>(a.z), bit_cast<__nv_fp8x4_e4m3, int>(b.z)));
   return ret;
 }
 
@@ -56,6 +159,11 @@ __forceinline__ __device__ int4 add_vectors(int4 a, int4 b) {
 template <>
 __forceinline__ __device__ int4 add_vectors<__half>(int4 a, int4 b) {
   return add_vectors_helper<__half2>(a, b);
+}
+
+template <>
+__forceinline__ __device__ int4 add_vectors<__nv_fp8_e4m3>(int4 a, int4 b) {
+  return add_vectors_helper<__nv_fp8x4_e4m3>(a, b);
 }
 
 template <typename T>
